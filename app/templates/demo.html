@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Demo</h1>
+
+<p>Claim: {{ claim }}</p>
+<div id="progress"></div>
+<div id="evidence"></div>
+<script>
+    function updateProgress(task_id) {
+    fetch(`/progress/${task_id}`)
+        .then(response => response.json())
+        .then(data => {
+            const log = data.log;
+            const status = data.status;
+            const logText = log.join('<br>');
+            
+            document.getElementById('progress').innerHTML = logText;
+            if (status === "in progress") {
+                setTimeout(() => updateProgress(task_id), 500);
+            }
+            else if (status === "completed") {
+                const evidences = data.evidence;
+
+                const evidenceContainer = document.getElementById('evidence');
+                evidenceContainer.innerHTML = '';
+
+                evidences.forEach(evidence => {
+                    const evidenceDiv = document.createElement('div');
+                    evidenceDiv.className = 'document';
+
+                    let evidenceHTML = `<strong>Document ID:</strong> ${evidence.doc_id}<br>
+                                        <strong>Document Score:</strong> ${evidence.doc_score}<br>`;
+
+                    if (evidence.sentences.length > 0) {
+                        let sentencesHTML = '<div class="passages">';
+                        evidence.sentences.forEach(sentence => {
+                            sentencesHTML += `<p><strong>Sentence:</strong> ${sentence.sentence}<br>
+                                            <strong>Score:</strong> ${sentence.score}<br>
+                                            <strong>Start:</strong> ${sentence.start}<br>
+                                            <strong>End:</strong> ${sentence.end}</p>
+                                            `;
+                        });
+                        sentencesHTML += '</div>';
+                        evidenceHTML += sentencesHTML;
+                    }
+
+                    evidenceDiv.innerHTML = evidenceHTML;
+                    evidenceContainer.appendChild(evidenceDiv);
+                });
+            }
+        });
+    }
+    updateProgress("{{ task_id }}");
+</script>
+{% endblock %}

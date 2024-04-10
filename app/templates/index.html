@@ -1,13 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Welcome to FEVERISH</h1>
+<!-- <h1>Welcome to FEVERISH</h1> -->
 
 <form method="post" action="">
     {{ form.csrf_token }}
-    {{ form.claim.label }} {{ form.claim }}
+    {{ form.claim }}
     {{ form.submit() }}
 </form>
 
-<h2>About</h2>
-<p>FEVERISH - Fact Extraction and VERification with Intelligent Search Heuristics.</p>
+<section>
+    <h2>About</h2>
+    <p>FEVERISH - Fact Extraction and VERification with Intelligent Search Heuristics.</p>
+</section>
 {% endblock %}

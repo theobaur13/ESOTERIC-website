@@ -44,8 +44,6 @@ def background_task(task_id, claim):
             sentence_dict = {
                 "sentence": sentence.sentence,
                 "score": sentence.score,
-                "start": sentence.start,
-                "end": sentence.end
             }
             evidence_dict["sentences"].append(sentence_dict)
         evidences.append(evidence_dict)

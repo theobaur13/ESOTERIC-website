@@ -1,8 +1,8 @@
 body {
     font-family: 'Moulpali', cursive;
     text-align: center;
-    background-color: #222831;
-    color: #eeeeee;
+    background-color: #EDEDED;
+    color: #171717;
 }
 
 #content {
@@ -20,16 +20,22 @@ section{
     text-align: left;
     padding-bottom: 20px;
     margin: 20px;
-    background-color: #31363F;
+    background-color: #EDEDED;
     border-radius: 3px;
-    border: 2px solid #333;
-    box-shadow: 2px 2px 0 #333;
+    border: 2px solid #444444;
+    box-shadow: 2px 2px 0 #444444;
+}
+
+section[id="progress"]{
+    background-color: #171717;
+    color: #eeeeee;
 }
 
 section h2{
     text-align: center;
     margin: 0px;
-    background-color: #76ABAE;
+    background-color: #DA0037;
+    color: #eeeeee;
 }
 
 section p{
@@ -46,22 +52,40 @@ input[type="text"]{
     margin: 8px 0;
     display: inline-block;
     box-sizing: border-box;
-    border: 2px solid #333;
-    box-shadow: 2px 2px 0 #333;
+    border: 2px solid #444444;
+    box-shadow: 2px 2px 0 #444444;
 }
 
 input[type="submit"]{
     font-family: 'Moulpali', cursive;
-    background-color: tomato;
+    background-color: #DA0037;
     color: #eeeeee;
     padding: 14px 20px;
     margin: 8px 0;
-    border: none;
     cursor: pointer;
-    border: 2px solid #333;
-    box-shadow: 2px 2px 0 #333;
+    border: 2px solid #444444;
+    box-shadow: 2px 2px 0 #444444;
 }
 
 input[type="submit"]:hover{
+    scale: 1.05;
+}
+
+.button-container{
+    text-align: center; 
+    width: 100%;
+}
+
+.show-evidence-text{
+    font-family: 'Moulpali', cursive;
+    margin-left: 20px;
+    margin-right: 20px;
+    padding: 7px 20px;
+    border: 2px solid #444444;
+    box-shadow: 2px 2px 0 #444444;
+    cursor: pointer;
+}
+
+.show-evidence-text:hover{
     scale: 1.05;
 }

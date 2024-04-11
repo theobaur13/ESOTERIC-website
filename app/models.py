@@ -12,10 +12,11 @@ class Evidence:
         self.doc_retrieval_method = doc_retrieval_method
 
     def set_evidence_sentences(self, sentences):
-        self.sentences = sentences
-
+        self.sentences = sorted(sentences, key=lambda x: x.score, reverse=True)
+        
     def add_sentence(self, sentence):
         self.sentences.append(sentence)
+        self.sentences.sort(key=lambda x: x.score, reverse=True)
 
     def merge_overlapping_sentences(self):
         self.sentences = sorted(self.sentences, key=lambda x: x.start)
@@ -88,6 +89,21 @@ class EvidenceWrapper:
 
         def __str__(self):
             return f"Query: {self.query}\nEvidences: {self.evidences}"
+        
+    def seperate_sort(self):
+        # Display documents containing passages first, ordered by their passage score, and then to display documents without passages, ordered by their document score
+        evidences_with_sentences = []
+        evidences_without_sentences = []
+        for evidence in self.evidences:
+            if evidence.sentences:
+                evidences_with_sentences.append(evidence)
+            else:
+                evidences_without_sentences.append(evidence)
+
+        evidences_with_sentences.sort(key=lambda x: max(sentence.score for sentence in x.sentences), reverse=True)
+        evidences_without_sentences.sort(key=lambda x: x.doc_score, reverse=True)
+
+        self.evidences = evidences_with_sentences + evidences_without_sentences
 
 class Sentence:
     def __init__(self, sentence=None, score=0, doc_id=None, start=None, end=None, question=None, method=None):

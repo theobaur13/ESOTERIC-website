@@ -34,6 +34,9 @@ def background_task(task_id, claim):
     evidences = []
     for evidence in evidence_wrapper.get_evidences():
         evidence.merge_overlapping_sentences()
+    
+    evidence_wrapper.seperate_sort()
+    for evidence in evidence_wrapper.get_evidences():
         evidence_dict = {
             "doc_id": evidence.doc_id,
             "doc_score": evidence.doc_score,
@@ -44,6 +47,8 @@ def background_task(task_id, claim):
             sentence_dict = {
                 "sentence": sentence.sentence,
                 "score": sentence.score,
+                "start": sentence.start,
+                "end": sentence.end
             }
             evidence_dict["sentences"].append(sentence_dict)
         evidences.append(evidence_dict)

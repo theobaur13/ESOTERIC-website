@@ -12,7 +12,7 @@
         .then(data => {
             const log = data.log;
             const status = data.status;
-            const content = `<h2>Retrieval</h2><p>${log.join('<br>')}</p>`;
+            const content = `<h2>Retrieving Evidence...</h2><p>${log.join('<br>')}</p>`;
             
             document.getElementById('progress').innerHTML = content;
             if (status === "in progress") {
@@ -22,7 +22,6 @@
                 document.getElementById('progress').style.display = 'none';
 
                 const evidences = data.evidence;
-
                 const evidenceContainer = document.getElementById('evidence');
                 evidenceContainer.innerHTML = '';
 
@@ -30,25 +29,68 @@
                     const evidenceDiv = document.createElement('section');
                     evidenceDiv.className = 'document';
 
-                    let evidenceHTML = `<h2>${evidence.doc_id}</h2>
-                                        <p><strong>Document Score:</strong> ${evidence.doc_score}</p>`;
+                    let evidenceHTML = `<h2>${evidence.doc_id}</h2>`;
 
                     if (evidence.sentences.length > 0) {
                         let sentencesHTML = '<div class="passages">';
                         evidence.sentences.forEach(sentence => {
-                            sentencesHTML += `<p><strong>Passage:</strong> ${sentence.sentence}<br>
+                            sentencesHTML += `<div class="passage">
+                                            <p><strong>Passage:</strong> "${sentence.sentence}"<br>
                                             <strong>Score:</strong> ${sentence.score}</p>
-                                            `;
+                                            </div>`;
                         });
                         sentencesHTML += '</div>';
                         evidenceHTML += sentencesHTML;
                     }
-
+                    evidenceHTML += `<div class="doc-info">
+                                        <p><strong>Document Score:</strong> ${evidence.doc_score}</p>
+                                        <div class="button-container">
+                                            <button class="show-evidence-text" onclick="toggleVisibility(this.parentNode.nextElementSibling)">Show Evidence Text</button>
+                                        </div>
+                                        <div class="evidence-text" style="display:none;">
+                                            <p>${highlightText(evidence.evidence_text, evidence.sentences)}</p>
+                                        </div>
+                                    </div>`;
                     evidenceDiv.innerHTML = evidenceHTML;
                     evidenceContainer.appendChild(evidenceDiv);
                 });
             }
         });
+    }
+    function toggleVisibility(element) {
+        element.style.display = (element.style.display === 'none') ? 'block' : 'none';
+    }
+    function highlightText(evidenceText, passages) {
+        // Escape HTML to prevent XSS
+        const escapeHtml = (text) => {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        // Sort passages based on the start index
+        passages.sort((a, b) => a.start - b.start);
+
+        // Track the last index of insertion to handle overlaps
+        let lastIndex = 0;
+        let result = "";
+
+        passages.forEach(passage => {
+            // Add text before the passage, if any
+            result += escapeHtml(evidenceText.substring(lastIndex, passage.start));
+            // Add the passage with highlighting
+            result += `<strong><i>${escapeHtml(evidenceText.substring(passage.start, passage.end))}</i></strong>`;
+            // Update the last index
+            lastIndex = passage.end;
+        });
+
+        // Add any remaining text after the last passage
+        result += escapeHtml(evidenceText.substring(lastIndex));
+
+        return result;
     }
     updateProgress("{{ task_id }}");
 </script>

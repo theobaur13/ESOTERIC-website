@@ -11,6 +11,7 @@ from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
 from tqdm import tqdm
 from rank_bm25 import BM25Okapi
+from sentence_transformers import SentenceTransformer, util
 
 from app import progress_store
 
@@ -48,6 +49,9 @@ class EvidenceRetriever:
         self.NER_model = pipeline("token-classification", model="Babelscape/wikineural-multilingual-ner", grouped_entities=True)
         self.question_generation_pipe = pipeline("text2text-generation", model="mrm8488/t5-base-finetuned-question-generation-ap", max_length=256)
         self.answer_extraction_pipe = pipeline("text2text-generation", model="vabatista/t5-small-answer-extraction-en")
+
+        # Setup similarity model
+        self.sim_model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2') 
         print("Evidence retriever initialised")
 
     def retrieve_evidence(self, claim, task_id):
@@ -152,6 +156,10 @@ class EvidenceRetriever:
         return evidence_wrapper
 
     def retrieve_passages(self, evidence_wrapper):
+        def get_semantic_sim(self, claim, sentence):
+            embeddings = self.sim_model.encode([claim, sentence])
+            return util.cos_sim(embeddings[0], embeddings[1]).item()
+        
         # Retrieve passages using BM25 between the claim and evidence sentences
         print("Retrieving passages using BM25")
         log_progress(self.task_id, "Retrieving passages using BM25")
@@ -199,7 +207,7 @@ class EvidenceRetriever:
             doc_id, original_text = sent_doc_ids_map[" ".join(cleaned)]
             for evidence in evidence_wrapper.get_evidences():
                 if evidence.doc_id == doc_id:
-                    sentence = Sentence(sentence=original, score=score, doc_id=doc_id, method="BM25")
+                    sentence = Sentence(sentence=original, score=get_semantic_sim(self, claim, original), doc_id=doc_id, method="BM25")
                     sentence.set_start_end(evidence.evidence_text)
                     evidence.add_sentence(sentence)
 
@@ -221,8 +229,8 @@ class EvidenceRetriever:
 
             for answer in results['answers']:
                 passage = answer.context
-                score = answer.score
                 id = answer.document_ids[0]
+                score = get_semantic_sim(self, claim, passage)
 
                 if score > self.reader_threshold:
                     evidence = evidence_wrapper.get_evidence_by_id(id)

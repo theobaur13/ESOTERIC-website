@@ -4,6 +4,7 @@
 
 <p>Claim: {{ claim }}</p>
 <section id="progress"></section>
+<div id="verdict"></div>
 <div id="evidence"></div>
 <script>
     function updateProgress(task_id) {
@@ -20,10 +21,16 @@
             }
             else if (status === "completed") {
                 document.getElementById('progress').style.display = 'none';
-
+                console.log(data);
+                console.log(data.verdict);
                 const evidences = data.evidence;
+                const verdict = data.verdict;
                 const evidenceContainer = document.getElementById('evidence');
                 evidenceContainer.innerHTML = '';
+
+                const verdictDiv = document.getElementById('verdict');
+                verdictDiv.innerHTML = '';
+                verdictDiv.innerHTML = `<p>Verdict: ${verdict}</p>`;
 
                 evidences.forEach(evidence => {
                     const evidenceDiv = document.createElement('section');

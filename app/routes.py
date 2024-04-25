@@ -2,6 +2,9 @@ import uuid
 from app import app, evidence_retriever, progress_store
 from flask import render_template, session, redirect, url_for, request, jsonify
 from threading import Thread
+import requests
+import os
+from dotenv import load_dotenv
 
 from app.forms import ClaimForm
 from app.models import Evidence, EvidenceWrapper, Sentence
@@ -29,7 +32,6 @@ def progress(task_id):
 def background_task(task_id, claim):
     evidence_retriever.flush_questions()
     evidence_wrapper = evidence_retriever.retrieve_evidence(claim, task_id)
-    progress_store[task_id]["status"] = "completed"
     
     evidences = []
     for evidence in evidence_wrapper.get_evidences():
@@ -53,3 +55,18 @@ def background_task(task_id, claim):
             evidence_dict["sentences"].append(sentence_dict)
         evidences.append(evidence_dict)
     progress_store[task_id]["evidence"] = evidences
+    evidence_sentences = [sentence["sentence"] for evidence in evidences for sentence in evidence["sentences"]]
+    prompt = "Is the following claim supported, refuted or not enough evidence based on the evidence listed below? The evidence is to be taken as completely factual. \n\nClaim: " + claim + "\n\nEvidence:\n" + "\n".join(evidence_sentences)
+   
+    model = "mistral-small-latest"
+    messages = [{
+        "role": "system",
+        "content": prompt
+        }]
+    
+    load_dotenv()
+    response = requests.post("https://api.mistral.ai/v1/chat/completions", json={"model": model, "messages": messages}, headers={"Authorization": "Bearer " + os.environ.get("MISTRAL_KEY")})
+    verdict = response.json()['choices'][0]['message']['content']
+    print(verdict)
+    progress_store[task_id]["verdict"] = verdict
+    progress_store[task_id]["status"] = "completed"

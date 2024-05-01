@@ -2,7 +2,7 @@ import os
 import spacy
 from haystack.nodes import DensePassageRetriever
 from haystack.nodes import FARMReader
-from transformers import pipeline
+from transformers import pipeline, DistilBertForSequenceClassification, AutoTokenizer
 from app.models import Evidence, EvidenceWrapper, Sentence
 from app.FEVERISH.tools.document_retrieval import title_match_search, score_docs, text_match_search, extract_questions, extract_answers, extract_questions, extract_polar_questions
 from app.FEVERISH.tools.NER import extract_entities
@@ -24,10 +24,11 @@ def log_progress(task_id, log):
         progress_store[task_id]["log"].append(log)
 
 class EvidenceRetriever:
-    def __init__(self, title_match_docs_limit=20, title_match_search_threshold=0, answerability_threshold=0.65, answerability_docs_limit=20, text_match_search_db_limit=1000, reader_threshold=0.7, questions=[]):
+    def __init__(self, title_match_docs_limit=20, title_match_search_threshold=0, answerability_threshold=0.65, answerability_docs_limit=20, text_match_search_db_limit=1000, reader_threshold=0.7, questions=[], use_relevancy_model=True):
         print ("Initialising evidence retriever")
 
         self.questions = questions
+        self.use_relevancy_model = use_relevancy_model
 
         # Setup db connection and NLP models
         load_dotenv()
@@ -52,6 +53,13 @@ class EvidenceRetriever:
 
         # Setup similarity model
         self.sim_model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2') 
+
+        if self.use_relevancy_model:
+            # Setup relevance classification model
+            relevance_classification_model_dir = os.path.join(os.path.dirname(__file__), 'models', 'relevancy_classification')
+            relevance_classification_model = DistilBertForSequenceClassification.from_pretrained(relevance_classification_model_dir)
+            relevance_classification_tokenizer = AutoTokenizer.from_pretrained(relevance_classification_model_dir)
+            self.relevance_classification_tokenizer_pipe = pipeline('text-classification', model=relevance_classification_model, tokenizer=relevance_classification_tokenizer)
         print("Evidence retriever initialised")
 
     def retrieve_evidence(self, claim, task_id):
@@ -160,84 +168,110 @@ class EvidenceRetriever:
             embeddings = self.sim_model.encode([claim, sentence])
             return util.cos_sim(embeddings[0], embeddings[1]).item()
         
-        # Retrieve passages using BM25 between the claim and evidence sentences
-        print("Retrieving passages using BM25")
-        log_progress(self.task_id, "Retrieving passages using BM25")
         claim = evidence_wrapper.get_claim()
-        evidence_texts = [{"doc_id": evidence.doc_id, "text": evidence.evidence_text} for evidence in evidence_wrapper.get_evidences()]
 
-        # Prepare evidence sentences and mappings
-        evidence_sentences = []
-        original_sentences = []
-        sent_doc_ids_map = {}
+        if self.use_relevancy_model:
+            evidences = evidence_wrapper.get_evidences()
+            for evidence in evidences:
+                evidence_text = evidence.evidence_text
+                doc = self.nlp(evidence_text)
 
-        # Clean the claim
-        cleaned_claim = [token.text for token in self.nlp(claim) if not token.is_stop and not token.is_punct]
+                evidence_sentences = []
+                for sentence in doc.sents:
+                    sentence = sentence.text
+                    input_pair = f"{claim} [SEP] {sentence}"
+                    result = self.relevance_classification_tokenizer_pipe(input_pair)
+                    label = result[0]['label']
+                    relevance_score = result[0]['score']
+                    similarity_score = get_semantic_sim(self, claim, sentence)
+                    if label == "LABEL_1":
+                        evidence_sentence = Sentence(sentence=sentence, score=similarity_score, doc_id=evidence.doc_id)
+                        evidence_sentences.append(evidence_sentence)
 
-        # Process documents
-        print("Processing documents")
-        log_progress(self.task_id, "Processing documents")
-        for doc in evidence_texts:
-            for sent in self.nlp(doc["text"]).sents:
-                original_sentences.append(sent.text)
-
-                # Tokenize and clean
-                cleaned = [token.text for token in sent if not token.is_stop and not token.is_punct]
-                evidence_sentences.append(cleaned)
-                sent_doc_ids_map[" ".join(cleaned)] = (doc["doc_id"], sent.text)
-
-        # Create BM25 object and score sentences
-        print("Scoring sentences")
-        log_progress(self.task_id, "Scoring sentences")
-        bm25 = BM25Okapi(evidence_sentences)
-        scores = bm25.get_scores(cleaned_claim)
-
-        # Prepare ranked sentences with original text
-        ranked_sentences = sorted([(evidence_sentences[i], scores[i], original_sentences[i]) for i in range(len(evidence_sentences))], key=lambda x: x[1], reverse=True)
-
-        # Only keep sentences with a score above 0
-        ranked_sentences = [sentence for sentence in ranked_sentences if sentence[1] > 0]
-
-        # Only keep the top N sentences
-        N = 5
-        ranked_sentences = ranked_sentences[:N]
-
-        # Add sentences to evidence
-        for cleaned, score, original in ranked_sentences:
-            doc_id, original_text = sent_doc_ids_map[" ".join(cleaned)]
-            for evidence in evidence_wrapper.get_evidences():
-                if evidence.doc_id == doc_id:
-                    sentence = Sentence(sentence=original, score=get_semantic_sim(self, claim, original), doc_id=doc_id, method="BM25")
-                    sentence.set_start_end(evidence.evidence_text)
+                for sentence in evidence_sentences:
+                    sentence.set_start_end(evidence_text)
                     evidence.add_sentence(sentence)
 
-        # Retrieve passages using the FARM reader
-        doc_store = wrapper_to_docstore(evidence_wrapper)
+        else:
+            # Retrieve passages using BM25 between the claim and evidence sentences
+            print("Retrieving passages using BM25")
+            log_progress(self.task_id, "Retrieving passages using BM25")
+            
+            evidence_texts = [{"doc_id": evidence.doc_id, "text": evidence.evidence_text} for evidence in evidence_wrapper.get_evidences()]
 
-        # Initialise reader
-        reader = FARMReader(
-            model_name_or_path="deepset/tinyroberta-squad2",
-            use_gpu=False,
-            context_window_size=250,
-            )
+            # Prepare evidence sentences and mappings
+            evidence_sentences = []
+            original_sentences = []
+            sent_doc_ids_map = {}
 
-        # Retrieve passages for each question
-        for question in self.questions:
-            print("Retrieving passages for question:", question)
-            log_progress(self.task_id, "Retrieving passages for question: " + question)
-            results = reader.predict(query=question, documents=doc_store, top_k=30)
+            # Clean the claim
+            cleaned_claim = [token.text for token in self.nlp(claim) if not token.is_stop and not token.is_punct]
 
-            for answer in results['answers']:
-                passage = answer.context
-                id = answer.document_ids[0]
-                score = get_semantic_sim(self, claim, passage)
+            # Process documents
+            print("Processing documents")
+            log_progress(self.task_id, "Processing documents")
+            for doc in evidence_texts:
+                for sent in self.nlp(doc["text"]).sents:
+                    original_sentences.append(sent.text)
 
-                if score > self.reader_threshold:
-                    evidence = evidence_wrapper.get_evidence_by_id(id)
-                    if evidence:
-                        sentence = Sentence(sentence=passage, score=score, doc_id=evidence.doc_id, question=question, method="FARM")
+                    # Tokenize and clean
+                    cleaned = [token.text for token in sent if not token.is_stop and not token.is_punct]
+                    evidence_sentences.append(cleaned)
+                    sent_doc_ids_map[" ".join(cleaned)] = (doc["doc_id"], sent.text)
+
+            # Create BM25 object and score sentences
+            print("Scoring sentences")
+            log_progress(self.task_id, "Scoring sentences")
+            bm25 = BM25Okapi(evidence_sentences)
+            scores = bm25.get_scores(cleaned_claim)
+
+            # Prepare ranked sentences with original text
+            ranked_sentences = sorted([(evidence_sentences[i], scores[i], original_sentences[i]) for i in range(len(evidence_sentences))], key=lambda x: x[1], reverse=True)
+
+            # Only keep sentences with a score above 0
+            ranked_sentences = [sentence for sentence in ranked_sentences if sentence[1] > 0]
+
+            # Only keep the top N sentences
+            N = 5
+            ranked_sentences = ranked_sentences[:N]
+
+            # Add sentences to evidence
+            for cleaned, score, original in ranked_sentences:
+                doc_id, original_text = sent_doc_ids_map[" ".join(cleaned)]
+                for evidence in evidence_wrapper.get_evidences():
+                    if evidence.doc_id == doc_id:
+                        sentence = Sentence(sentence=original, score=get_semantic_sim(self, claim, original), doc_id=doc_id, method="BM25")
                         sentence.set_start_end(evidence.evidence_text)
                         evidence.add_sentence(sentence)
+
+            # Retrieve passages using the FARM reader
+            doc_store = wrapper_to_docstore(evidence_wrapper)
+
+            # Initialise reader
+            reader = FARMReader(
+                model_name_or_path="deepset/tinyroberta-squad2",
+                use_gpu=False,
+                context_window_size=250,
+                )
+
+            # Retrieve passages for each question
+            for question in self.questions:
+                print("Retrieving passages for question:", question)
+                log_progress(self.task_id, "Retrieving passages for question: " + question)
+                results = reader.predict(query=question, documents=doc_store, top_k=30)
+
+                for answer in results['answers']:
+                    passage = answer.context
+                    id = answer.document_ids[0]
+                    score = get_semantic_sim(self, claim, passage)
+
+                    if score > self.reader_threshold:
+                        evidence = evidence_wrapper.get_evidence_by_id(id)
+                        if evidence:
+                            sentence = Sentence(sentence=passage, score=score, doc_id=evidence.doc_id, question=question, method="FARM")
+                            sentence.set_start_end(evidence.evidence_text)
+                            evidence.add_sentence(sentence)
+        
         return evidence_wrapper
     
     def flush_questions(self):

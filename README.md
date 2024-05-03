@@ -1,5 +1,5 @@
 # ESOTERIC-website
-A demo website for ESOTERIC. (ElasticSearch Semantic Optimized Text Extraction Retrieval from Information Corpus)
+A demo website for ESOTERIC. (Elasticsearch Semantic Optimized Text Extraction Retrieval from Information Corpus)
 
 ## Prerequisites
 To run this system [Elasticsearch 8.12.2 x64](https://www.elastic.co/downloads/past-releases/elasticsearch-8-12-2) needs to be installed and an Elasticsearch database needs to be active. A detailed guide on how to set up Elasticsearch can be found [here](https://www.elastic.co/guide/en/elasticsearch/reference/current/run-elasticsearch-locally.html#_start_elasticsearch). 

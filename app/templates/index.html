@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- <h1>Welcome to FEVERISH</h1> -->
+<!-- <h1>Welcome to ESOTERIC</h1> -->
 
 <form method="post" action="">
     {{ form.csrf_token }}
@@ -10,29 +10,30 @@
 
 <section>
     <h2>About</h2>
-    <p>FEVERISH - Fact Extraction and VERification with Intelligent Search Heuristics.</p>
+    <p>ESOTERIC - ElasticSearch Semantic Optimized Text Extraction Retrieval from Information Corpus.</p>
 </section>
 
 <section>
     <h2>Instructions</h2>
     <p>
-        Enter a factual claim to check in the form above and click "Submit". FEVERISH will retrieve and verify evidence for the claim.
+        Enter a factual claim to check in the form above and click "Submit". ESOTERIC will retrieve and verify evidence from the FEVER dataset for the claim.
     </p>
 </section>
 
 <section>
     <h2>Purpose</h2>
     <p>
-        FEVERISH is a tool that uses natural language processing to automatically retrieve and verify evidence for a given claim.
+        ESOTERIC is a tool that uses natural language processing to automatically retrieve and verify evidence for a given input claim.
         It is designed to assist fact-checkers and journalists in verifying claims made in news articles and other sources.
-        FEVERISH automates the information retrieval process in the fact-checking pipeline, making it faster and more efficient.
+        ESOTERIC automates the information retrieval process in the fact-checking pipeline, making it faster and more efficient.
+        ESORTERIC can be run on on non-specialised hardware, democratizing the ability to perform accurate fact-checking, thereby empowering a broader audience to engage in critical analysis and contribute to the fight against misinformation effectively.
     </p>
 </section>
 
 <section>
     <h2>Dataset</h2>
     <p>
-        FEVERISH uses the FEVER dataset (Fact Extraction and VERification) as its source of information.
+        ESOTERIC uses the FEVER dataset (Fact Extraction and VERification) as its source of information.
         The FEVER dataset contains over 5 million introductory sections of Wikipedia pages, which are used as evidence to verify claims.
     </p>
 </section>
@@ -40,12 +41,15 @@
 <section>
     <h2>Algorithm</h2>
     <p>
-        FEVERISH uses an intelligent search algorithm to retrieve evidence from a large database of documents.
+        ESOTERIC uses an intelligent search algorithm to retrieve evidence from a large database of documents.
     </p>
     <ol>
         <li>Claim is entered by the user.</li>
-        <li>Entities from claim are extracted using...</li>
-        <li>...</li>
+        <li>Keyword spans from claim are extracted using the <a href="https://huggingface.co/Babelscape/wikineural-multilingual-ner"><i>wikineural-multilingual-ner<i></a> model and the <a href="https://huggingface.co/vabatista/t5-small-answer-extraction-en"><i>t5-small-answer-extraction-en<i></a> model.</li>
+        <li>Documents with matching titles to these keyword spans are searched for using ElasticSearch.</li>
+        <li>Documents with text that contains any of the keyword spans are retrieved.</li>
+        <li>The spans are used as answers in the model <a href="https://huggingface.co/mrm8488/t5-base-finetuned-question-generation-ap"><i>t5-base-finetuned-question-generation-ap</i></a> alongside the claim to generate a set of questions about the claim.</li>
+        <li>The documents obtained  </li>
         <li>Evidence passages and documents are presented to the user.</li>
     </ol>
 </section>

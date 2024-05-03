@@ -18,7 +18,7 @@ answerability_threshold = float(os.getenv("ANSWERABILITY_THRESHOLD"))
 reader_threshold = float(os.getenv("READER_THRESHOLD"))
 
 # Load evidence retriever
-from app.FEVERISH.evidence_retrieval import EvidenceRetriever
+from app.ESOTERIC.evidence_retrieval import EvidenceRetriever
 evidence_retriever = EvidenceRetriever(
     title_match_docs_limit=title_match_docs_limit,
     text_match_search_db_limit=text_match_search_db_limit,

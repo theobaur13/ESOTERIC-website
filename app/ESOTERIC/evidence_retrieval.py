@@ -4,9 +4,9 @@ from haystack.nodes import DensePassageRetriever
 from haystack.nodes import FARMReader
 from transformers import pipeline, DistilBertForSequenceClassification, AutoTokenizer
 from app.models import Evidence, EvidenceWrapper, Sentence
-from app.FEVERISH.tools.document_retrieval import title_match_search, score_docs, text_match_search, extract_questions, extract_answers, extract_questions, extract_polar_questions
-from app.FEVERISH.tools.NER import extract_entities
-from app.FEVERISH.tools.docstore_conversion import listdict_to_docstore, wrapper_to_docstore
+from app.ESOTERIC.tools.document_retrieval import title_match_search, score_docs, text_match_search, extract_questions, extract_answers, extract_questions, extract_polar_questions
+from app.ESOTERIC.tools.NER import extract_entities
+from app.ESOTERIC.tools.docstore_conversion import listdict_to_docstore, wrapper_to_docstore
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
 from tqdm import tqdm

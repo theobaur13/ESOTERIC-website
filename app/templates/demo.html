@@ -6,7 +6,20 @@
 <section id="progress"></section>
 <div id="verdict"></div>
 <div id="evidence"></div>
+<form id="cancelForm" style="display: {% if status == 'completed' %} none {% endif %}">
+    <button type="submit">Cancel</button>
+</form>
 <script>
+    function cancelProcess() {
+        // Redirect user to the "/" route
+        window.location.href = "/";
+    }
+
+    document.getElementById('cancelForm').addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent default form submission
+        cancelProcess(); // Call the cancelProcess function
+    });
+
     function updateProgress(task_id) {
     fetch(`/progress/${task_id}`)
         .then(response => response.json())

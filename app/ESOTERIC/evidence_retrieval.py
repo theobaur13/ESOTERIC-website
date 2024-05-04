@@ -21,7 +21,12 @@ def log_progress(task_id, log, step):
         return "#" + ''.join([random.choice('0123456789ABCDEF') for i in range(6)])
     if task_id:
         if task_id not in progress_store:
-            progress_store[task_id] = {"status": "in progress", "log": [], "questions": []}
+            progress_store[task_id] = {
+                "status": "in progress",
+                "log": [],
+                "questions": [],
+                "should_continue": True
+            }
             
         progress_store[task_id]["status"] = "in progress"
         progress_store[task_id]["log"].append(log)

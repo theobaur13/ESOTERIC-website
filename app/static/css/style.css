@@ -63,7 +63,9 @@ input[type="text"]{
     box-shadow: 2px 2px 0 #444444;
 }
 
-input[type="submit"]{
+input[type="submit"],
+button[type="submit"]
+{
     font-family: 'Moulpali', cursive;
     background-color: #DA0037;
     color: #eeeeee;
@@ -74,7 +76,9 @@ input[type="submit"]{
     box-shadow: 2px 2px 0 #444444;
 }
 
-input[type="submit"]:hover{
+input[type="submit"]:hover,
+button[type="submit"]:hover
+{
     scale: 1.05;
 }
 

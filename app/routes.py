@@ -4,6 +4,7 @@ from flask import render_template, session, redirect, url_for, request, jsonify
 from threading import Thread
 import requests
 import os
+import re
 from dotenv import load_dotenv
 
 from app.forms import ClaimForm
@@ -40,7 +41,7 @@ def background_task(task_id, claim):
     evidence_wrapper.seperate_sort()
     for evidence in evidence_wrapper.get_evidences():
         evidence_dict = {
-            "doc_id": evidence.doc_id,
+            "doc_id": convert_brc(evidence.doc_id),
             "doc_score": evidence.doc_score,
             "evidence_text": evidence.evidence_text,
             "sentences": []
@@ -70,3 +71,13 @@ def background_task(task_id, claim):
     print(verdict)
     progress_store[task_id]["verdict"] = verdict
     progress_store[task_id]["status"] = "completed"
+
+def convert_brc(string):
+    string = re.sub('-LRB-', '(', string)
+    string = re.sub('-RRB-', ')', string)
+    string = re.sub('-LSB-', '[', string)
+    string = re.sub('-RSB-', ']', string)
+    string = re.sub('-LCB-', '{', string)
+    string = re.sub('-RCB-', '}', string)
+    string = re.sub('-COLON-', ':', string)
+    return string

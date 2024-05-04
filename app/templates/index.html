@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- <h1>Welcome to ESOTERIC</h1> -->
 
 <form method="post" action="">
     {{ form.csrf_token }}
@@ -35,23 +34,50 @@
     <p>
         ESOTERIC uses the FEVER dataset (Fact Extraction and VERification) as its source of information.
         The FEVER dataset contains over 5 million introductory sections of Wikipedia pages, which are used as evidence to verify claims.
+        Its structure can be seen below:
+        <pre>
+        {
+            "id": "1928_in_association_football",
+            "text": "The following are the football -LRB- soccer RRB-
+            events of the year 1928 throughout the world . ",
+            "lines": "0\tThe following are the football -LRB- soccer 
+            -RRB- events of the year 1928 throughout the world .\n1\t"
+        }            
+        </pre>
     </p>
+    
 </section>
 
 <section>
     <h2>Algorithm</h2>
     <p>
-        ESOTERIC uses an intelligent search algorithm to retrieve evidence from a large database of documents.
+        ESOTERIC uses an intelligent search algorithm to retrieve evidence from a large database of documents. The evidence retrieval code can be found <a href="https://github.com/theobaur13/ESOTERIC">here</a>, and the source code for the website can be found <a href="https://github.com/theobaur13/ESOTERIC-website">here</a>.
     </p>
+    <h3>Document Retrieval</h3>
     <ol>
         <li>Claim is entered by the user.</li>
-        <li>Keyword spans from claim are extracted using the <a href="https://huggingface.co/Babelscape/wikineural-multilingual-ner"><i>wikineural-multilingual-ner<i></a> model and the <a href="https://huggingface.co/vabatista/t5-small-answer-extraction-en"><i>t5-small-answer-extraction-en<i></a> model.</li>
-        <li>Documents with matching titles to these keyword spans are searched for using ElasticSearch.</li>
-        <li>Documents with text that contains any of the keyword spans are retrieved.</li>
+        <li>Keyword spans from claim are extracted using the <a href="https://huggingface.co/Babelscape/wikineural-multilingual-ner"><i>wikineural-multilingual-ner</i></a> model and the <a href="https://huggingface.co/vabatista/t5-small-answer-extraction-en"><i>t5-small-answer-extraction-en</i></a> model.</li>
+        <li>Documents with exactly matching titles to these keyword spans are searched for using ElasticSearch. These are called <i>exact-match documents</i>.</li>
+        <li>Documents with exactly matching titles to these keyword spans, but have disambiguation information are searched for using ElasticSearch. These are called <i>disambiguative documents</i>.</li>
+        <li>Documents with text that contains any of the keyword spans are retrieved. These are called <i>textually-matched documents</i>.</li>
         <li>The spans are used as answers in the model <a href="https://huggingface.co/mrm8488/t5-base-finetuned-question-generation-ap"><i>t5-base-finetuned-question-generation-ap</i></a> alongside the claim to generate a set of questions about the claim.</li>
-        <li>The documents obtained  </li>
-        <li>Evidence passages and documents are presented to the user.</li>
+        <li>The <i>disambiguative documents</i> have the semantic similarity of their disambiguation information compared with the user's claim, and a score cutoff is applied.</li>
+        <li>The remaining <i>disambiguative documents</i> are concatenated with the <i>textually-matched documents</i>.</li>
+        <li>The high-dimensional vector context embeddings of the document texts (represented using the <a href="https://huggingface.co/facebook/dpr-ctx_encoder-single-nq-base"><i>dpr-ctx_encoder-single-nq-base</i></a> model) are retrieved from the Elasticsearch database.</li>
+        <li>The high-dimensional vector question embeddings of each generated question (represented using the <a href="https://huggingface.co/facebook/dpr-question_encoder-single-nq-base"><i>dpr-question_encoder-single-nq-base</i></a> model) are calculated.</li>
+        <li>The angle in the vector space is measured between each document text embedding and each question embedding using a <i>Dense Passage Retriever</i>. The closest angle for each document is saved as its document score.</li>
+        <li>A cutoff score is applied to the documents, having the effect of retrieving the closest documents to each question.</li>
+        <li>The final set of documents is passed into the passage retriever.</li>
     </ol>
+    <img src="{{ url_for('static', filename='img/document_retrieval_diagram.png') }}" alt="Document Retreival Diagram" style="width: 90%; max-width: 800px;" class="center">
+    <h3>Passage Retrieval</h3>
+    <ol>
+        <li>All document texts are split into individual sentences.</li>
+        <li>Each sentence is passed through our <a href="https://huggingface.co/theobaur/relevancy_classification_FEVER">classification model</a>, which is fine tuned with data from the FEVER dataset.</li>
+        <li>The model classifies each sentence as either irrelevant or relevant to the claim.</li>
+        <li>The relevant sentences are returned as evidence for the claim.</li>
+    </ol>
+    <img src="{{ url_for('static', filename='img/passage_retrieval_diagram.png') }}" alt="Passage Retreival Diagram" style="width: 40%; max-width: 800px;" class="center">
 </section>
 
 <section>
@@ -59,6 +85,13 @@
     <ul>
         <li><a href="https://fever.ai/">FEVER: a large-scale dataset for Fact Extraction and VERification</a></li>
         <li><a href="https://arxiv.org/abs/1803.05355">FEVER: a large-scale dataset for Fact Extraction and VERification (arXiv)</a></li>
+        <li><a href="https://huggingface.co/Babelscape/wikineural-multilingual-ner">wikineural-multilingual-ner</a></li>
+        <li><a href="https://huggingface.co/vabatista/t5-small-answer-extraction-en">t5-small-answer-extraction-en</a></li>
+        <li><a href="https://huggingface.co/mrm8488/t5-base-finetuned-question-generation-ap">t5-base-finetuned-question-generation-ap</a></li>
+        <li><a href="https://huggingface.co/facebook/dpr-ctx_encoder-single-nq-base">dpr-ctx_encoder-single-nq-base</a></li>
+        <li><a href="https://huggingface.co/facebook/dpr-question_encoder-single-nq-base">dpr-question_encoder-single-nq-base</a></li>
+        <li><a href="https://huggingface.co/theobaur/relevancy_classification_FEVER">relevancy_classification_FEVER</a></li>
+    </ul>
 </section>
 
 {% endblock %}

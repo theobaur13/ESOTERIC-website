@@ -12,16 +12,40 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, util
+import random
 
 from app import progress_store
 
-def log_progress(task_id, log):
+def log_progress(task_id, log, step):
+    def generate_color():
+        return "#" + ''.join([random.choice('0123456789ABCDEF') for i in range(6)])
     if task_id:
         if task_id not in progress_store:
-            progress_store[task_id] = {"status": "in progress", "log": []}
+            progress_store[task_id] = {"status": "in progress", "log": [], "questions": []}
             
         progress_store[task_id]["status"] = "in progress"
         progress_store[task_id]["log"].append(log)
+        progress_store[task_id]["step"] = step
+
+        if step == "start":
+            progress_store[task_id]["claim"] = log
+        elif step == "entities_extracted":
+            progress_store[task_id]["entities"] = log
+            # Create color for each entity in a dictionary
+            progress_store[task_id]["entity_colors"] = {}
+            for entity in log:
+                progress_store[task_id]["entity_colors"][entity] = generate_color()
+        elif step == "extract_answers":
+            progress_store[task_id]["answers"] = log
+            # If answers not in entities, add them
+            for answer in log:
+                entities = progress_store[task_id]["entities"]
+                if answer['focal'] not in entities:
+                    progress_store[task_id]["entities"].append(answer['focal'])
+                    progress_store[task_id]["entity_colors"][answer['focal']] = generate_color()
+        elif step == "generate_questions":
+            progress_store[task_id]["questions"].append(log)
+
 
 class EvidenceRetriever:
     def __init__(self, title_match_docs_limit=20, title_match_search_threshold=0, answerability_threshold=0.65, answerability_docs_limit=20, text_match_search_db_limit=1000, reader_threshold=0.7, questions=[], use_relevancy_model=True):
@@ -71,21 +95,21 @@ class EvidenceRetriever:
 
     def retrieve_documents(self, claim):
         print("Starting document retrieval for claim: '" + str(claim) + "'")
-        log_progress(self.task_id, "Starting document retrieval for claim: '" + str(claim) + "'")
+        log_progress(self.task_id, claim, "start")
 
         # Extract entities from claim
         print("Extracting entities from claim")
-        log_progress(self.task_id, "Extracting entities from claim")
+        log_progress(self.task_id, "Extracting entities from claim", "extract_entities")
         entities = extract_entities(self.answer_extraction_pipe, self.NER_model, claim)
         print("Entities:", entities)
-        log_progress(self.task_id, "Entities: " + str(entities))
+        log_progress(self.task_id, entities, "entities_extracted")
 
         # Retrieve documents with exact title match inc. docs with disambiguation in title and score them
         print("Searching for titles containing keywords:", entities)
-        log_progress(self.task_id, "Searching for titles containing keywords: " + str(entities))
+        log_progress(self.task_id, "Searching for titles containing keywords: " + str(entities), "title_match_search")
         title_match_docs = title_match_search(entities, self.es)
         print("Scoring documents")
-        log_progress(self.task_id, "Scoring documents")
+        log_progress(self.task_id, "Scoring documents", "score_docs")
         title_match_docs = score_docs(title_match_docs, claim, self.nlp)
 
         # Split docs into title matched and disambiguated docs
@@ -98,33 +122,33 @@ class EvidenceRetriever:
 
         # Retrieve X documents where entity is mentioned in the text
         print("Searching for documents containing keywords:", entities)
-        log_progress(self.task_id, "Searching for documents containing keywords: " + str(entities))
+        log_progress(self.task_id, "Searching for documents containing keywords: " + str(entities), "text_match_search")
         textually_matched_docs = text_match_search(entities, self.es, self.text_match_search_db_limit)
 
         # Generate questions for each answer in the query
         claim_answers = extract_answers(self.answer_extraction_pipe, claim)
         print("Claim answers:", claim_answers)
-        log_progress(self.task_id, "Claim answers: " + str(claim_answers))
+        log_progress(self.task_id, claim_answers, "extract_answers")
         # questions = []
         for answer in claim_answers:
             question = extract_questions(self.question_generation_pipe, answer['focal'], claim)
             self.questions.append(question)
             print("Question for answer '" + answer['focal'] + "':", question)
-            log_progress(self.task_id, "Question for answer '" + answer['focal'] + "': " + question)
+            log_progress(self.task_id, {"answer": answer['focal'], "question": question}, "generate_questions")
 
         # Manually generate polar questions (yes/no questions)
         polar_questions = extract_polar_questions(self.nlp, self.question_generation_pipe, claim)
         for polar_question in polar_questions:
             self.questions.append(polar_question)
             print("Polar question:", polar_question)
-            log_progress(self.task_id, "Polar question: " + polar_question)
+            log_progress(self.task_id, {"answer": "Yes/No", "question": polar_question}, "generate_questions")
 
         # For doc in both disambiguated and textually matched docs, add to doc store
         doc_store = listdict_to_docstore(disambiguated_docs + textually_matched_docs)
 
         # Initialise retriever
         print("Initialising DPR")
-        log_progress(self.task_id, "Initialising DPR")
+        log_progress(self.task_id, "Initialising DPR", "initialise_DPR")
         retriever = DensePassageRetriever(
             document_store=doc_store,
             query_embedding_model="facebook/dpr-question_encoder-single-nq-base",
@@ -141,7 +165,7 @@ class EvidenceRetriever:
 
         # Retrieve docs for each question keeping the highest scoring docs
         print("Retrieving documents for each question")
-        log_progress(self.task_id, "Retrieving documents for each question")
+        log_progress(self.task_id, "Retrieving documents for each question", "retrieve_docs")
         for question in tqdm(self.questions):
             results = retriever.retrieve(query=question)
             for result in results:

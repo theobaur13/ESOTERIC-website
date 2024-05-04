@@ -38,6 +38,13 @@ section h2{
     color: #eeeeee;
 }
 
+section h3{
+    margin-top: 20px;
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-bottom: 0px;
+}
+
 section p{
     margin-top: 20px;
     margin-left: 20px;
@@ -88,4 +95,11 @@ input[type="submit"]:hover{
 
 .show-evidence-text:hover{
     scale: 1.05;
+}
+
+.center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%;
 }

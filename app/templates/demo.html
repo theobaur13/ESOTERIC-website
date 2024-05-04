@@ -2,7 +2,7 @@
 {% block content %}
 <!-- <h1>Demo</h1> -->
 
-<p>Claim: {{ claim }}</p>
+<p>Claim: "<i>{{ claim }}</i>"</p>
 <section id="progress"></section>
 <div id="verdict"></div>
 <div id="evidence"></div>
@@ -11,18 +11,149 @@
     fetch(`/progress/${task_id}`)
         .then(response => response.json())
         .then(data => {
-            const log = data.log;
             const status = data.status;
-            const content = `<h2>Retrieving Evidence...</h2><p>${log.join('<br>')}</p>`;
-            
+            const step = data.step;
+
+            const log = data.log;
+            const claim = data.claim;
+            const entities = data.entities;
+            const entity_colors = data.entity_colors;
+            const questions = data.questions;
+
+            let content = ""; 
+
+            function colorizeClaim(claim, entities, entity_colors) {
+                let claim_with_entities = claim;
+                for (const entity of entities) {
+                    const entity_color = entity_colors[entity];
+                    const entity_regex = new RegExp(`\\b${entity}\\b`, 'gi');
+                    claim_with_entities = claim_with_entities.replace(entity_regex, `<b><span style="color:${entity_color};">${entity}</span></b>`);
+                }
+                return claim_with_entities;
+            }
+
+            function colorizeQuestion(question, answer, entity_colors) {
+                let question_with_entities = question;
+                const entity_color = entity_colors[answer];
+                // Make question string the entity_color
+                question_with_entities = question_with_entities.replace(question, `<b><span style="color:${entity_color};">${question}</span></b>`);
+                return question_with_entities;
+            }
+
+            console.log(step);
+            if (step === "start") {
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim}</p>
+                `;
+            }
+            else if (step === "extract_entities") {
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim}</p>
+                <p>Extracting entities...</p>
+                `;
+            }
+            else if (step === "entities_extracted") {
+                // Search for entities in the claim, if one is found then change the color of the entity span to the one in the entity_colors dictionary
+                let claim_with_entities = colorizeClaim(claim, entities, entity_colors);
+                let entity_string = Object.values(entities).join(', ');
+                let colorized_entity_string = colorizeClaim(entity_string, entities, entity_colors);
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim_with_entities}</p>
+                <p>Entities extracted: ${colorized_entity_string}</p>
+                `;
+            }
+            else if (step === "title_match_search") {
+                let claim_with_entities = colorizeClaim(claim, entities, entity_colors);
+                let entity_string = Object.values(entities).join(', ');
+                let colorized_entity_string = colorizeClaim(entity_string, entities, entity_colors);
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim_with_entities}</p>
+                <p>Entities extracted: ${colorized_entity_string}</p>
+                <p>Searching for titles containing entities...</p>
+                `;
+            }
+            else if (step === "text_match_search") {
+                let claim_with_entities = colorizeClaim(claim, entities, entity_colors);
+                let entity_string = Object.values(entities).join(', ');
+                let colorized_entity_string = colorizeClaim(entity_string, entities, entity_colors);
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim_with_entities}</p>
+                <p>Entities extracted: ${colorized_entity_string}</p>
+                <p>Searching for text containing entities...</p>
+                `;
+            }
+            else if (step === "extract_answers") {
+                let claim_with_entities = colorizeClaim(claim, entities, entity_colors);
+                let entity_string = Object.values(entities).join(', ');
+                let colorized_entity_string = colorizeClaim(entity_string, entities, entity_colors);
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim_with_entities}</p>
+                <p>Entities extracted: ${colorized_entity_string}</p>
+                <p>Extracting answers...</p>
+                `;
+            }
+            else if (step === "generate_questions") {
+                let claim_with_entities = colorizeClaim(claim, entities, entity_colors);
+                let entity_string = Object.values(entities).join(', ');
+                let colorized_entity_string = colorizeClaim(entity_string, entities, entity_colors);
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim_with_entities}</p>
+                <p>Entities extracted: ${colorized_entity_string}</p>
+                <p>Generating questions...</p>
+                `
+                for (const question of questions) {
+                    const question_with_entities = colorizeQuestion(question.question, question.answer, entity_colors);
+                    content += `<p>${question_with_entities}</p>`
+                }
+            }
+            else if (step === "initialise_DPR") {
+                let claim_with_entities = colorizeClaim(claim, entities, entity_colors);
+                let entity_string = Object.values(entities).join(', ');
+                let colorized_entity_string = colorizeClaim(entity_string, entities, entity_colors);
+                
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim_with_entities}</p>
+                <p>Entities extracted: ${colorized_entity_string}</p>
+                `
+                console.log(questions);
+                for (const question of questions) {
+                    const question_with_entities = colorizeQuestion(question.question, question.answer, entity_colors);
+                    content += `<p>${question_with_entities}</p>`
+                }
+                content += `<p>Initialising DPR...</p>`;
+            }
+            else if (step === "retrieve_docs") {
+                let claim_with_entities = colorizeClaim(claim, entities, entity_colors);
+                let entity_string = Object.values(entities).join(', ');
+                let colorized_entity_string = colorizeClaim(entity_string, entities, entity_colors);
+                content = `
+                <h2>Retrieving Evidence...</h2>
+                <p>${claim_with_entities}</p>
+                <p>Entities extracted: ${colorized_entity_string}</p>
+                `
+                console.log(questions);
+                for (const question of questions) {
+                    const question_with_entities = colorizeQuestion(question.question, question.answer, entity_colors);
+                    content += `<p>${question_with_entities}</p>`;
+                }
+                content += `<p>Retrieving documents...</p>`;
+            }
+
             document.getElementById('progress').innerHTML = content;
             if (status === "in progress") {
                 setTimeout(() => updateProgress(task_id), 500);
             }
             else if (status === "completed") {
                 document.getElementById('progress').style.display = 'none';
-                console.log(data);
-                console.log(data.verdict);
+
                 const evidences = data.evidence;
                 const verdict = data.verdict;
                 const evidenceContainer = document.getElementById('evidence');
@@ -30,7 +161,7 @@
 
                 const verdictDiv = document.getElementById('verdict');
                 verdictDiv.innerHTML = '';
-                verdictDiv.innerHTML = `<p>Verdict: ${verdict}</p>`;
+                verdictDiv.innerHTML = `<p>Verdict: <i>"${verdict}"</i></p>`;
 
                 evidences.forEach(evidence => {
                     const evidenceDiv = document.createElement('section');
@@ -43,7 +174,7 @@
                         evidence.sentences.forEach(sentence => {
                             sentencesHTML += `<div class="passage">
                                             <p><strong>Passage:</strong> "${sentence.sentence}"<br>
-                                            <strong>Score:</strong> ${sentence.score}</p>
+                                            <strong>Passage Score:</strong> ${sentence.score}</p>
                                             </div>`;
                         });
                         sentencesHTML += '</div>';
